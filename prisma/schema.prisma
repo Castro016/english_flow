@@ -1,0 +1,113 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                  String            @id @default(uuid())
+  name                String
+  email               String            @unique
+  password            String            // Hashed using Argon2id
+  avatar              String            @default("avatar_1")
+  xp                  Int               @default(0)
+  level               Int               @default(1)
+  streak              Int               @default(0)
+  lastActive          DateTime?
+  dailyGoalXp         Int               @default(20)
+  role                String            @default("USER") // USER, MODERATOR, ADMIN, SUPER_ADMIN
+  mfaActive           Boolean           @default(false)
+  mfaSecret           String?           // Encrypted base32 TOTP secret key
+  failedLoginAttempts Int               @default(0)
+  lockedUntil         DateTime?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  
+  progress            Progress[]
+  userAchievements    UserAchievement[]
+  auditLogs           AuditLog[]
+}
+
+model Lesson {
+  id           String     @id @default(uuid())
+  title        String
+  description  String
+  difficulty   String     @default("EASY") // EASY, MEDIUM, HARD
+  level        String     @default("A1") // A1, A2, B1, B2, C1
+  introduction String     @db.Text
+  examples     String     @db.Text // JSON Stringified Array of examples: [{ english: string, portuguese: string, hint?: string }]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  
+  exercises    Exercise[]
+  progress     Progress[]
+}
+
+model Exercise {
+  id        String   @id @default(uuid())
+  lessonId  String
+  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  type      String   // CHOICE, DRAG, BLANK, TRANSLATE, LISTEN
+  question  String   @db.Text
+  answer    String   @db.Text // Correct answer(s)
+  options   String   @db.Text // JSON Stringified Option array for MULTIPLE_CHOICE or DRAG_WORDS
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Achievement {
+  id          String            @id @default(uuid())
+  name        String
+  description String
+  icon        String            // Icon name (e.g. 'zap', 'award', 'flame')
+  requirement String            // Condition: 'FIRST_LESSON', 'XP_1000', 'STREAK_7', etc.
+  value       Int               // Requirement threshold value
+  xpReward    Int               @default(50)
+  
+  users       UserAchievement[]
+}
+
+model UserAchievement {
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievementId String
+  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  unlockedAt    DateTime    @default(now())
+
+  @@id([userId, achievementId])
+}
+
+model Progress {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId   String
+  lesson     Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  completed  Boolean  @default(false)
+  score      Int      @default(0) // XP earned in this lesson session
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, lessonId])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String   // e.g., 'AUTH_LOGIN_SUCCESS', 'USER_ROLE_ELEVATION', 'USER_PURGE'
+  ip        String
+  userAgent String
+  details   String?  @db.Text // Encoded JSON payload of standard changes (excluding passwords/tokens)
+  createdAt DateTime @default(now())
+}
+
+model RateLimit {
+  id        String   @id @default(uuid())
+  key       String   @unique // Combines IP/User ID + Endpoint path
+  points    Int      @default(0)
+  expireAt  DateTime
+  createdAt DateTime @default(now())
+}
