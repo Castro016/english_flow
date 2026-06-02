@@ -72,7 +72,7 @@ async function main() {
   console.log('Achievements seeded!');
 
   // 3. Create Admin and Regular User
-  const adminPassword = await hash('admin123', {
+  const adminPassword = await hash('FlowAdminSecure#2026!', {
     memoryCost: 65536,
     timeCost: 3,
     outputLen: 32,
@@ -88,9 +88,9 @@ async function main() {
   const admin = await prisma.user.create({
     data: {
       name: 'Administrador',
-      email: 'admin@englishflow.com',
-      password: adminPassword,
+      email: 'manager@englishflow.com',
       avatar: 'avatar_admin',
+      password: adminPassword,
       role: 'ADMIN',
       xp: 150,
       level: 2,
