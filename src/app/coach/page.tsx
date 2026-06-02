@@ -48,14 +48,26 @@ export default function AICoachPage() {
   const [explainingMessageId, setExplainingMessageId] = useState<string | null>(null);
   const [messageExplanations, setMessageExplanations] = useState<Record<string, { translation: string; vocabulary: { word: string; explanation: string }[] }>>({});
 
-  // Initialize Speech Recognition
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (SpeechRecognition) {
+  const toggleRecording = () => {
+    if (typeof window === 'undefined') return;
+
+    // Check if SpeechRecognition is supported by the browser
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Reconhecimento de voz não é suportado por este navegador. Tente utilizar o Google Chrome ou Microsoft Edge.');
+      return;
+    }
+
+    if (isRecording) {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      setIsRecording(false);
+    } else {
+      try {
         const rec = new SpeechRecognition();
         rec.continuous = false;
-        rec.lang = 'en-US'; // Expect user to speak in English
+        rec.lang = 'en-US'; // User is speaking in English to the coach
         rec.interimResults = false;
 
         rec.onstart = () => {
@@ -70,6 +82,11 @@ export default function AICoachPage() {
         rec.onerror = (event: any) => {
           console.error('Speech recognition error:', event.error);
           setIsRecording(false);
+          if (event.error === 'not-allowed') {
+            alert('Acesso ao microfone negado! Por favor, ative as permissões de gravação nas configurações do seu navegador para poder falar com o coach.');
+          } else {
+            alert(`Erro no reconhecimento de voz: ${event.error}`);
+          }
         };
 
         rec.onend = () => {
@@ -77,19 +94,11 @@ export default function AICoachPage() {
         };
 
         recognitionRef.current = rec;
+        rec.start();
+      } catch (e) {
+        console.error('Failed to start speech recognition:', e);
+        setIsRecording(false);
       }
-    }
-  }, []);
-
-  const toggleRecording = () => {
-    if (!recognitionRef.current) {
-      alert('Reconhecimento de voz em inglês não é suportado pelo seu navegador.');
-      return;
-    }
-    if (isRecording) {
-      recognitionRef.current.stop();
-    } else {
-      recognitionRef.current.start();
     }
   };
 
