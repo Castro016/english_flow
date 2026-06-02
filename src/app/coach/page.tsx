@@ -6,7 +6,7 @@ import { useAuth } from '@/components/auth-provider';
 import {
   Sparkles, Send, Mic, Volume2, VolumeX, RefreshCw, MessageSquare,
   BookOpen, HelpCircle, Loader2, ArrowLeft, Bot, User as UserIcon,
-  CheckCircle, Target, Award, CheckCircle2, ChevronRight, Zap
+  CheckCircle, Target, Award, CheckCircle2, ChevronRight, Zap, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -35,6 +35,119 @@ export default function AICoachPage() {
   const [wordCount, setWordCount] = useState(0);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Speech Recognition states & ref
+  const [isRecording, setIsRecording] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  // AI Writing Improver states
+  const [improvingInput, setImprovingInput] = useState(false);
+  const [improvementAdvice, setImprovementAdvice] = useState<{ polished: string; explanation: string } | null>(null);
+
+  // AI Message Explainer states
+  const [explainingMessageId, setExplainingMessageId] = useState<string | null>(null);
+  const [messageExplanations, setMessageExplanations] = useState<Record<string, { translation: string; vocabulary: { word: string; explanation: string }[] }>>({});
+
+  // Initialize Speech Recognition
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        const rec = new SpeechRecognition();
+        rec.continuous = false;
+        rec.lang = 'en-US'; // Expect user to speak in English
+        rec.interimResults = false;
+
+        rec.onstart = () => {
+          setIsRecording(true);
+        };
+
+        rec.onresult = (event: any) => {
+          const transcript = event.results[0][0].transcript;
+          setInput(prev => prev + (prev.endsWith(' ') || prev === '' ? '' : ' ') + transcript);
+        };
+
+        rec.onerror = (event: any) => {
+          console.error('Speech recognition error:', event.error);
+          setIsRecording(false);
+        };
+
+        rec.onend = () => {
+          setIsRecording(false);
+        };
+
+        recognitionRef.current = rec;
+      }
+    }
+  }, []);
+
+  const toggleRecording = () => {
+    if (!recognitionRef.current) {
+      alert('Reconhecimento de voz em inglês não é suportado pelo seu navegador.');
+      return;
+    }
+    if (isRecording) {
+      recognitionRef.current.stop();
+    } else {
+      recognitionRef.current.start();
+    }
+  };
+
+  const handleImproveText = async () => {
+    if (!input.trim() || improvingInput) return;
+    setImprovingInput(true);
+    setImprovementAdvice(null);
+    try {
+      const res = await fetch('/api/ai/polish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: input }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.result) {
+          setImprovementAdvice(data.result);
+        }
+      }
+    } catch (e) {
+      console.error('Error polishing writing:', e);
+    } finally {
+      setImprovingInput(false);
+    }
+  };
+
+  const handleExplainMessage = async (msgId: string, text: string) => {
+    if (explainingMessageId) return;
+    if (messageExplanations[msgId]) {
+      // Toggle collapse
+      const updated = { ...messageExplanations };
+      delete updated[msgId];
+      setMessageExplanations(updated);
+      return;
+    }
+    
+    setExplainingMessageId(msgId);
+    try {
+      const res = await fetch('/api/ai/explain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.result) {
+          setMessageExplanations(prev => ({
+            ...prev,
+            [msgId]: data.result
+          }));
+        }
+      }
+    } catch (e) {
+      console.error('Error explaining message:', e);
+    } finally {
+      setExplainingMessageId(null);
+    }
+  };
 
   const topics = [
     { id: 'interview', title: '💼 Entrevista de Emprego', desc: 'Pratique perguntas difíceis corporativas em inglês.', prompt: 'Hello! I am Oliver, your interviewer today. Welcome to EnglishFlow Corp. To start, could you please introduce yourself and tell me why you want this job?' },
@@ -356,15 +469,57 @@ export default function AICoachPage() {
                         {msg.role === 'assistant' ? msg.cleanText : msg.content}
                       </div>
 
-                      {/* Read audio action */}
+                      {/* Read audio & explanation action */}
                       {msg.role === 'assistant' && (
-                        <button
-                          onClick={() => speakText(msg.cleanText || msg.content)}
-                          className="px-2.5 py-1 text-[10px] font-bold text-primary hover:text-primary/95 flex items-center gap-1 transition-all cursor-pointer hover:underline"
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => speakText(msg.cleanText || msg.content)}
+                            className="px-2.5 py-1 text-[10px] font-bold text-primary hover:text-primary/95 flex items-center gap-1 transition-all cursor-pointer hover:underline"
+                          >
+                            <Volume2 className="h-3 w-3" />
+                            Ouvir Pronúncia
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleExplainMessage(msg.id, msg.cleanText || msg.content)}
+                            className="px-2.5 py-1 text-[10px] font-bold text-indigo-500 hover:text-indigo-600 flex items-center gap-1 transition-all cursor-pointer hover:underline"
+                            disabled={explainingMessageId !== null && explainingMessageId !== msg.id}
+                          >
+                            {explainingMessageId === msg.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin text-indigo-500" />
+                            ) : (
+                              <BookOpen className="h-3 w-3" />
+                            )}
+                            {messageExplanations[msg.id] ? "Ocultar Explicação" : "Traduzir & Explicar"}
+                          </button>
+                        </div>
+                      )}
+
+                      {msg.role === 'assistant' && messageExplanations[msg.id] && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="mt-2 p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/10 text-xs text-foreground/80 space-y-3 w-full"
                         >
-                          <Volume2 className="h-3 w-3" />
-                          Ouvir Pronúncia
-                        </button>
+                          <div>
+                            <span className="font-extrabold text-indigo-500 block mb-1">Tradução</span>
+                            <p className="font-medium italic">"{messageExplanations[msg.id].translation}"</p>
+                          </div>
+                          {messageExplanations[msg.id].vocabulary?.length > 0 && (
+                            <div className="pt-2 border-t border-border/20">
+                              <span className="font-extrabold text-indigo-500 block mb-1.5">Vocabulário Chave</span>
+                              <div className="space-y-1.5">
+                                {messageExplanations[msg.id].vocabulary.map((voc, vIdx) => (
+                                  <div key={vIdx} className="leading-normal">
+                                    <span className="font-bold text-primary">{voc.word}</span>: <span className="font-medium">{voc.explanation}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </motion.div>
                       )}
                     </div>
                   </motion.div>
@@ -386,20 +541,109 @@ export default function AICoachPage() {
               </div>
 
               {/* Input Form Box */}
-              <div className="p-4 border-t border-border/60 bg-card/75 backdrop-blur-md shrink-0">
-                <form onSubmit={handleSendMessage} className="flex gap-2 relative max-w-4xl mx-auto">
-                  <input
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    disabled={loading}
-                    placeholder="Responda em inglês para treinar sua escrita..."
-                    className="flex-1 px-4 py-3 bg-secondary/35 border border-border/70 hover:border-primary/20 focus:border-primary focus:ring-1 focus:ring-primary rounded-2xl text-sm placeholder:text-foreground/45 transition-all outline-none"
-                  />
+              <div className="p-4 border-t border-border/60 bg-card/75 backdrop-blur-md shrink-0 relative">
+                
+                {/* AI Writing Improver Tooltip Card */}
+                <AnimatePresence>
+                  {improvementAdvice && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      className="absolute bottom-full left-4 right-4 mb-3 p-4 rounded-2xl bg-card border border-primary/25 shadow-xl z-20 space-y-3"
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-bold text-primary flex items-center gap-1">
+                          <Sparkles className="h-3.5 w-3.5 fill-primary/10 animate-pulse" />
+                          Sugestão de Melhoria IA
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setImprovementAdvice(null)}
+                          className="text-xs font-bold text-foreground/45 hover:text-foreground cursor-pointer focus:outline-none"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      <div className="space-y-1.5 text-xs">
+                        <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold leading-normal text-left">
+                          {improvementAdvice.polished}
+                        </div>
+                        <p className="text-foreground/75 font-medium leading-normal pl-1 text-left">
+                          {improvementAdvice.explanation}
+                        </p>
+                      </div>
+                      <div className="flex gap-2 justify-end pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setImprovementAdvice(null)}
+                          className="px-3 py-1.5 rounded-lg border border-border bg-card text-foreground/70 hover:bg-secondary/40 text-[10px] font-bold cursor-pointer"
+                        >
+                          Ignorar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setInput(improvementAdvice.polished);
+                            setImprovementAdvice(null);
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/95 text-[10px] font-bold shadow-sm cursor-pointer"
+                        >
+                          Aplicar Frase
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <form onSubmit={handleSendMessage} className="flex gap-2 relative max-w-4xl mx-auto items-center">
+                  
+                  {/* Speech to Text Microphone */}
+                  <button
+                    type="button"
+                    onClick={toggleRecording}
+                    className={`p-3 rounded-2xl border transition-all cursor-pointer shrink-0 active:scale-95 flex items-center justify-center ${
+                      isRecording 
+                        ? 'bg-rose-500/20 border-rose-500 text-rose-500 animate-pulse' 
+                        : 'bg-secondary/35 border-border/70 text-foreground/75 hover:bg-secondary'
+                    }`}
+                    title="Falar em inglês (Speech-to-Text)"
+                  >
+                    <Mic className="h-5 w-5" />
+                  </button>
+
+                  <div className="flex-1 relative flex items-center">
+                    <input
+                      type="text"
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      disabled={loading}
+                      placeholder={isRecording ? "Ouvindo... fale em inglês" : "Responda em inglês para treinar sua escrita..."}
+                      className="w-full pl-4 pr-11 py-3 bg-secondary/35 border border-border/70 hover:border-primary/20 focus:border-primary focus:ring-1 focus:ring-primary rounded-2xl text-sm placeholder:text-foreground/45 transition-all outline-none"
+                    />
+
+                    {/* AI improver sparkle shortcut */}
+                    {input.trim().length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleImproveText}
+                        disabled={improvingInput}
+                        className="absolute right-3 p-1.5 rounded-lg text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                        title="Melhorar frase com IA"
+                      >
+                        {improvingInput ? (
+                          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                        ) : (
+                          <Sparkles className="h-4 w-4 fill-primary/10" />
+                        )}
+                      </button>
+                    )}
+                  </div>
+
                   <button
                     type="submit"
                     disabled={loading || !input.trim()}
-                    className="px-5 bg-primary text-primary-foreground hover:bg-primary/95 disabled:bg-secondary disabled:text-foreground/40 rounded-2xl text-xs font-bold transition-all shadow-md shadow-primary/10 flex items-center gap-1.5 cursor-pointer active:scale-95 disabled:scale-100 disabled:shadow-none"
+                    className="px-5 py-3 bg-primary text-primary-foreground hover:bg-primary/95 disabled:bg-secondary disabled:text-foreground/40 rounded-2xl text-xs font-bold transition-all shadow-md shadow-primary/10 flex items-center gap-1.5 cursor-pointer active:scale-95 disabled:scale-100 disabled:shadow-none h-11"
                   >
                     <Send className="h-4 w-4" />
                     <span className="hidden sm:inline">Enviar</span>
