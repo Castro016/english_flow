@@ -216,13 +216,13 @@ export default function AICoachPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 flex flex-col lg:flex-row gap-6 relative z-10 w-full h-[calc(100vh-4rem)]">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 flex flex-col lg:flex-row gap-6 relative z-10 w-full h-auto lg:h-[calc(100vh-4rem)]">
       {/* Background aesthetics */}
       <div className="absolute top-[10%] left-[-5%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[10%] right-[-5%] w-[40%] h-[40%] bg-indigo-500/5 rounded-full blur-[120px] pointer-events-none" />
 
       {/* Main Chat Panel */}
-      <div className="flex-1 flex flex-col bg-card border border-border rounded-3xl overflow-hidden shadow-lg h-full">
+      <div className="flex-1 flex flex-col bg-card border border-border rounded-3xl overflow-hidden shadow-lg h-[75vh] min-h-[500px] lg:h-full">
         {/* Chat Header */}
         <div className="p-4 sm:p-5 border-b border-border/60 flex items-center justify-between bg-card/65 backdrop-blur-md shrink-0">
           <div className="flex items-center gap-3">

@@ -264,7 +264,7 @@ export default function LessonPlayroomPage() {
                             key={i}
                             disabled={isAnswerChecked}
                             onClick={() => setSelectedOption(opt)}
-                            className={`p-5 rounded-2xl text-left font-bold text-sm sm:text-base border cursor-pointer transition-all active:scale-98 ${
+                            className={`p-4 sm:p-5 rounded-2xl text-left font-bold text-xs sm:text-sm md:text-base border cursor-pointer transition-all active:scale-98 flex items-center ${
                               isSelected
                                 ? 'bg-primary/15 border-primary text-primary shadow-md'
                                 : 'bg-card border-border hover:border-primary/40 text-foreground/80'
