@@ -65,7 +65,7 @@ Follow these pedagogical instructions strictly:
         'Accept': 'application/json',
       },
       body: JSON.stringify({
-        model: 'qwen/qwen3.5-122b-a10b',
+        model: 'meta/llama-3.1-8b-instruct',
         messages: formattedMessages,
         max_tokens: 1024,
         temperature: 0.70,

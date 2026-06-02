@@ -120,7 +120,7 @@ Required JSON Structure:
         'Accept': 'application/json',
       },
       body: JSON.stringify({
-        model: 'qwen/qwen3.5-122b-a10b',
+        model: 'meta/llama-3.1-8b-instruct',
         messages: [{ role: 'user', content: systemPrompt }],
         max_tokens: 4096,
         temperature: 0.50,
