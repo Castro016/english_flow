@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  serverExternalPackages: ['@node-rs/argon2'],
   allowedDevOrigins: ['26.150.37.35'],
   async headers() {
     return [

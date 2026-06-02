@@ -88,10 +88,10 @@ export async function POST(req: Request) {
       { success: true, user: userWithoutPassword },
       { status: 201 }
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error during registration API:', error);
     return NextResponse.json(
-      { error: 'Ocorreu um erro interno no servidor.' },
+      { error: error?.message || 'Ocorreu um erro interno no servidor.' },
       { status: 500 }
     );
   }

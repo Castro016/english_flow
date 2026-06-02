@@ -43,10 +43,10 @@ export async function GET() {
       success: true,
       user,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in /api/auth/me:', error);
     return NextResponse.json(
-      { error: 'Erro interno do servidor.' },
+      { error: error?.message || 'Erro interno do servidor.' },
       { status: 500 }
     );
   }

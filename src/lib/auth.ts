@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
 import { prisma } from './db';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'english_flow_super_secret_key_2026_jwt_token_encryption';
+const JWT_SECRET = process.env.JWT_SECRET || 'english_flow_dev_fallback_secret_key_dont_use_in_prod';
 const COOKIE_NAME = 'englishflow_session';
 
 export interface JWTPayload {
